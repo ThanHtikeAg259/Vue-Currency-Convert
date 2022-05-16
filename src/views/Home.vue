@@ -1,6 +1,7 @@
 <template>
   <div>
     <div class="container mt-5">
+      <loading :active="isLoading" :can-cancel="true" :is-full-page="fullPage" :color="color"/>
       <div class="card">
         <img src="../assets/exchange-rate.png" class="d-block mx-auto" alt="">
         <div class="row justify-content-center mt-3">
@@ -8,12 +9,18 @@
         </div>
         <div class="row justify-content-center">
           <div class="col-4">
-            <input type="number" class="form-control col" v-model="first_exchange" @change="convert()">
+            <input type="number" class="form-control col ctrl-h" v-model="first_exchange" @input="convert()">
           </div>
           <div class="col-4">
-            <select class="form-control" v-model="first_currency" @change="apiCall()">
-              <option v-for="(item, index) in country_map[0]" :value="item" :key="index">{{item}}</option>
-            </select>
+            <multiselect v-model="first_currency" :options=this.options :custom-label="customLabel" :show-labels="false"
+              @input="apiCall()">
+              <template slot="singleLabel" slot-scope="props"><img class="option__image" :src="props.option.img"><span
+                  class="option__desc"><span
+                    class="option__title">&nbsp;&nbsp;{{ props.option.title }}</span></span></template>
+              <template slot="option" slot-scope="props"><img class="option__image" :src="props.option.img">
+                <span class="option__title">&nbsp;&nbsp;{{ props.option.title }}</span>
+              </template>
+            </multiselect>
           </div>
         </div>
         <div class="row justify-content-center mt-5">
@@ -26,22 +33,26 @@
         </div>
         <div class="row justify-content-center">
           <div class="col-4">
-            <input type="number" class="form-control col" v-model="second_exchange" @change="reConvert()">
+            <input type="number" class="form-control col ctrl-h" v-model="second_exchange" @input="reConvert()">
           </div>
           <div class="col-4">
-            <select class="form-control" v-model="second_currency" @change="changeFlag()">
-              <option v-for="(item, index) in country_map[0]" :value="item" :key="index" class="s-img">
-                {{item}}
-              </option>
-            </select>
+            <multiselect v-model="second_currency" :options=this.options :custom-label="customLabel"
+              :show-labels="false">
+              <template slot="singleLabel" slot-scope="props"><img class="option__image" :src="props.option.img"><span
+                  class="option__desc"><span
+                    class="option__title">&nbsp;&nbsp;{{ props.option.title }}</span></span></template>
+              <template slot="option" slot-scope="props"><img class="option__image" :src="props.option.img">
+                <span class="option__title">&nbsp;&nbsp;{{ props.option.title }}</span>
+              </template>
+            </multiselect>
           </div>
         </div>
         <div class="row justify-content-center mt-3">
           <h5 class="display-5">
-            {{currency_map.conversion_rates[this.first_currency]}} {{this.first_currency}}
-            <country-flag :country=this.first_flag size='normal' />&nbsp; =
-            {{currency_map.conversion_rates[this.second_currency]}} {{this.second_currency}}
-            <country-flag :country=this.first_flag size='normal' />
+            {{currency_map.conversion_rates[this.first_currency.title]}} {{this.first_currency.title}}
+            <country-flag :country=this.first_currency.title.slice(0,-1).toLowerCase() size='normal' />&nbsp; =
+            {{currency_map.conversion_rates[this.second_currency.title]}} {{this.second_currency.title}}
+            <country-flag :country=this.second_currency.title.slice(0,-1).toLowerCase() size='normal' />
           </h5>
         </div>
         <div class="row justify-content-center mt-3">
@@ -60,60 +71,78 @@
     mapState
   } from 'vuex';
   import CountryFlag from 'vue-country-flag'
+  import Multiselect from 'vue-multiselect'
+  import Loading from 'vue-loading-overlay';
   export default {
     components: {
-      CountryFlag
+      CountryFlag,
+      Multiselect,
+      Loading,
     },
 
     data() {
       return {
-        first_currency: "USD",
-        second_currency: "MMK",
+        first_currency: {
+          title: "USD",
+          img: "https://www.countryflagicons.com/FLAT/32/US.png"
+        },
+        second_currency: {
+          title: "MMK",
+          img: "https://www.countryflagicons.com/FLAT/32/MM.png"
+        },
         first_exchange: 0,
         second_exchange: 0,
-        first_flag: "us",
+        isLoading: false,
+        fullPage: true,
+        color: "#e8e117",
       }
     },
 
-    // watch: {
-    //   first_exchange(val) {
-    //     console.log("val:", val);
-    //   }
-    // },
-
     mounted() {
       this.$store.dispatch('getCountry');
-      this.$store.dispatch('getCurrency', this.first_currency);
+      this.$store.dispatch('getCurrency', this.first_currency.title);
     },
 
     methods: {
-      changeFlag() {
-      },
-      justTest() {
-        console.log("dr ka function htl ka:", this.currency_map);
+      customLabel({
+        title,
+        desc
+      }) {
+        return `${title} – ${desc}`
       },
       apiCall() {
-        this.$store.dispatch('getCurrency', this.first_currency);
-        let just_store = this.currency_map.conversion_rates["MMK"];
-        console.log("just store:", just_store);
+        this.$store.dispatch('getCurrency', this.first_currency.title);
+        this.isLoading = true;
+        setTimeout(() => {
+          this.convert();
+          this.isLoading = false
+        }, 350)
       },
       convert() {
-        console.log("FROM convert function: ", this.currency_map.conversion_rates[this.second_currency]);
-        this.second_exchange = this.first_exchange * this.currency_map.conversion_rates[this.second_currency];
+        console.log("ok");
+        this.second_exchange = this.first_exchange * this.currency_map.conversion_rates[this.second_currency.title];
       },
       reConvert() {
-        this.first_exchange = this.second_exchange / this.currency_map.conversion_rates[this.second_currency];
+        this.first_exchange = this.second_exchange / this.currency_map.conversion_rates[this.second_currency.title];
       },
-      async switchConvert() {
-        const temp = this.first_currency;
-        this.first_currency = this.second_currency;
-        this.second_currency = temp;
-        console.log("1st:", this.first_currency);
-        console.log("2nd:", this.second_currency);
-        const res = await this.$store.dispatch('getCurrency', this.first_currency);
-        console.log("await: ", res);
-        console.log("ggwp:", this.$store.state.currency);
-        this.convert();
+      swapOptions() {
+        const temp = {
+          title: this.first_currency.title,
+          img: this.first_currency.img,
+        };
+        this.first_currency.title = this.second_currency.title;
+        this.first_currency.img = this.second_currency.img;
+        this.second_currency.title = temp.title;
+        this.second_currency.img = temp.img;
+      },
+      switchConvert() {
+        this.swapOptions();
+        this.$store.dispatch('getCurrency', this.first_currency.title);
+        this.isLoading = true;
+        setTimeout(() => {
+          this.convert();
+          this.isLoading = false
+        }, 1000)
       }
     },
 
@@ -121,14 +150,20 @@
       ...mapState({
         currency_map: (state) => state.currency,
         country_map: (state) => state.country,
+        options: (state) => state.options,
       })
     }
   }
 </script>
-
+<style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 <style>
   .h-30 {
     display: block;
     height: 30px;
+  }
+
+  .ctrl-h {
+    height: calc(2em + 1rem + 2px) !important;
+    border: 1px solid #e5e9ed !important;
   }
 </style>
